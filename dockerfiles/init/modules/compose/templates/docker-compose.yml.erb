@@ -23,12 +23,17 @@ che:
     - '/etc/group:/etc/group:ro'
     - '/etc/passwd:/etc/passwd:ro'
 <% end -%>
-  ports:
-    - '<%= scope.lookupvar('che::che_port') -%>:<%= scope.lookupvar('che::che_port') -%>'
 <% if scope.lookupvar('che::che_env') == 'development' -%>
+  ports:
+    - '8080'
     - '<%= scope.lookupvar('che::che_debug_port') -%>:<%= scope.lookupvar('che::che_debug_port') -%>'
 <% end -%>
   restart: always
+  labels:
+    traefik.che.frontend.backend: "che-server"
+    traefik.che.frontend.entryPoints: "http"
+    traefik.che.port: "8080"
+    traefik.che.frontend.rule: "PathPrefix:/"
   container_name: <%= ENV["CHE_CONTAINER_NAME"] %>
 <% if scope.lookupvar('che::che_user') != 'root' -%>
   user: <%= scope.lookupvar('che::che_user') -%>
@@ -36,3 +41,18 @@ che:
 <% if ! @dns_resolvers.empty? -%>
 <%= "  dns:" + "\n" + @dns_resolvers.split(",").map { |val| "    - #{val}" }.join("\n") %>
 <% end -%>
+
+
+traefik:
+  image: florentbenoit/traefik
+  command: --logLevel=DEBUG
+  links:
+    - 'che:che'
+  labels:
+    traefik.enable: "false"
+  ports:
+    - '<%= scope.lookupvar('che::che_port') -%>:<%= scope.lookupvar('che::che_port') -%>'
+    - '7070:7070'
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - '<%= scope.lookupvar('che::che_instance') -%>/config/traefik.toml:/etc/traefik/traefik.toml'
